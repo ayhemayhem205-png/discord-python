@@ -1,2 +1,47 @@
-[deploy]
-startCommand = "uv run python bot.py"
+import discord
+from discord import app_commands
+from discord.ext import commands
+import asyncio
+
+# 1. إعدادات البوت
+TOKEN = 'YOUR_BOT_TOKEN_HERE'
+WHITELIST = [1234567890, 9876543210]  # ضع IDs الأشخاص المسموح لهم هنا
+
+class MyBot(discord.Client):
+    def __init__(self):
+        super().__init__(intents=discord.Intents.default())
+        # شجرة الأوامر لنظام Slash Commands
+        self.tree = app_commands.CommandTree(self)
+
+    async def setup_hook(self):
+        # مزامنة الأوامر مع ديسكورد
+        await self.tree.sync()
+
+bot = MyBot()
+
+# 2. أمر Slash للـ "سبام"
+@bot.tree.command(name="send_multiple", description="إرسال رسالة مكررة (للمصرح لهم فقط)")
+@app_commands.describe(message="الرسالة التي تريد إرسالها", count="عدد المرات", delay="الفصل الزمني بالثواني")
+async def send_multiple(interaction: discord.Interaction, message: str, count: int, delay: float = 1.0):
+    # التحقق من القائمة البيضاء
+    if interaction.user.id not in WHITELIST:
+        await interaction.response.send_message("❌ عذراً، أنت لست في القائمة البيضاء لاستخدام هذا الأمر.", ephemeral=True)
+        return
+
+    # الرد المبدئي
+    await interaction.response.send_message(f"🚀 بدأ إرسال '{message}' لـ {count} مرات...", ephemeral=True)
+
+    # حلقة التكرار
+    for i in range(count):
+        try:
+            await interaction.channel.send(message)
+            await asyncio.sleep(delay) # فاصل زمني لتجنب الحظر
+        except Exception as e:
+            print(f"خطأ أثناء الإرسال: {e}")
+            break
+
+@bot.event
+async def on_ready():
+    print(f'--- {bot.user} متصل الآن بنظام الأوامر الحديثة ---')
+
+bot.run(TOKEN)
